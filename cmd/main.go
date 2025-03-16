@@ -2,13 +2,11 @@ package main
 
 import (
 	"pdtui/internal/ui"
-	// "fmt"
-	// "pdtui/api"
-	// "os"
 )
 
 func main() {
-	ui.MonitorUI()
+	// Start the TUI application
+	ui.StartUI()
 }
 
 // func main() {

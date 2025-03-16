@@ -1,6 +1,19 @@
-pagerduty:
-  service_ids:
-    - "PIJ90N7" # Mock service 
-  user_id:
-    - " "
+pagerDuty:
+  serviceIDs:
+    - "service-id-1"
+    - "service-id-2"
+
+ui:
+  header:
+    title: "PDTUI"
+    height: 3
+  leftPanel:
+    widgets:
+      - "NAVIGATION"
+      - "SETTINGS"
+      - "STATUS"
+  mainContent:
+    sections:
+      - "INCIDENTS"
+      - "DETAILS"
   

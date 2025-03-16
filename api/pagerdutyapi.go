@@ -4,30 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	// "os"
+	"pdtui/config"
 
 	"github.com/PagerDuty/go-pagerduty"
-	"pdtui/config"
 )
 
 var newClient = pagerduty.NewClient
 
 func ListIncidents() ([]pagerduty.Incident, error) {
-	err := config.LoadConfig() 
-	if err != nil {
-		fmt.Println("Error loading configuration:", err)
-		return nil, fmt.Errorf("configuration error: %w", err)
+	// Load configuration
+	if err := config.LoadConfig("config.yaml"); err != nil {
+		return nil, fmt.Errorf("error loading configuration: %w", err)
 	}
 
 	apiKey := config.GetPagerDutyAPIKey()
 	if apiKey == "" {
 		return nil, fmt.Errorf("PagerDuty API key not found in configuration")
 	}
+
 	client := newClient(apiKey)
-	serviceIDs := config.GetServiceIDsFromYAML() 
+	serviceIDs := config.GetServiceIDs()
 
 	opts := pagerduty.ListIncidentsOptions{
-		Statuses:   []string{"acknowledged", "resolved"},
+		Statuses:   []string{"triggered", "acknowledged", "resolved"},
 		ServiceIDs: serviceIDs,
 		Limit:      25,
 	}

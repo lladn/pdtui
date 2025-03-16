@@ -3,87 +3,70 @@ package config
 import (
 	"fmt"
 	"os"
-	"sync"
-	// "os/exec" // Import the os/exec package
 
 	"github.com/joho/godotenv"
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/viper"
 )
 
-var (
-	config     map[string]string
-	yamlConfig YAMLConfig // Struct to hold YAML config
-	configOnce sync.Once
-)
-
-// YAMLConfig defines the structure of your config.yaml file
-type YAMLConfig struct {
+type Config struct {
 	PagerDuty struct {
-		ServiceIDs []string `yaml:"service_ids"`
-	} `yaml:"pagerduty"`
+		ServiceIDs []string `yaml:"serviceIDs"`
+	} `yaml:"pagerDuty"`
+
+	UI struct {
+		Header struct {
+			Title  string `yaml:"title"`
+			Height int    `yaml:"height"`
+		} `yaml:"header"`
+
+		LeftPanel struct {
+			Widgets []string `yaml:"widgets"`
+		} `yaml:"leftPanel"`
+
+		MainContent struct {
+			Sections []string `yaml:"sections"`
+		} `yaml:"mainContent"`
+	} `yaml:"ui"`
 }
 
-// LoadConfig loads configuration from both .env and config.yaml files.
-// .env takes precedence for overlapping keys.
-func LoadConfig() error {
-	var err error
-	configOnce.Do(func() { // Ensure Load is only executed once
-		// Load .env file first
-		err = godotenv.Load()
-		if err != nil && !os.IsNotExist(err) { // Ignore if .env doesn't exist, but log other errors
-			fmt.Println("Error loading .env file from config folder:", err)
-			// Don't return error here, as YAML config might be used instead or .env might not be required
-		}
+var cfg Config
 
-		config = make(map[string]string)
-		if os.Getenv("PAGERDUTY_API_KEY") != "" { // Only load from env if set to avoid overwriting YAML if .env is missing
-			config["pagerduty_api_key"] = os.Getenv("PAGERDUTY_API_KEY")
-		}
+// LoadConfig loads the configuration from a file and environment variables
+func LoadConfig(path string) error {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		return fmt.Errorf("failed to load .env file: %w", err)
+	}
 
+	viper.SetConfigFile(path)
+	viper.AutomaticEnv() // Override config values with environment variables
 
-		// Load YAML config
-		yamlFile, yamlErr := os.ReadFile("config/config.yaml") // Use os.ReadFile instead of ioutil.ReadFile
-		if yamlErr != nil {
-			fmt.Println("Error reading config.yaml:", yamlErr)
-			return // Return error if YAML file cannot be read
-		}
+	// Set default values
+	viper.SetDefault("pagerDuty.serviceIDs", []string{})
+	viper.SetDefault("ui.header.title", "PDTUI")
+	viper.SetDefault("ui.header.height", 3)
+	viper.SetDefault("ui.leftPanel.widgets", []string{"NAVIGATION", "SETTINGS", "STATUS"})
+	viper.SetDefault("ui.mainContent.sections", []string{"INCIDENTS", "DETAILS"})
 
-		yamlErr = yaml.Unmarshal(yamlFile, &yamlConfig)
-		if yamlErr != nil {
-			fmt.Println("Error unmarshalling config.yaml:", yamlErr)
-			err = yamlErr // Set the error to return from LoadConfig
-			return      // Return error if YAML unmarshalling fails
-		}
-		if config["pagerduty_api_key"] == "" { // If not set by .env, try to get from YAML if available
-			config["pagerduty_api_key"] = os.Getenv("PAGERDUTY_API_KEY") // Fallback to env var if not in YAML (or .env)
+	// Read the config file
+	if err := viper.ReadInConfig(); err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
 
-		}
+	// Unmarshal the config into a struct
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
 
-	})
-	return err // Return error from LoadConfig function (if any YAML error occurred)
+	return nil
 }
 
-// GetPagerDutyAPIKey retrieves the PagerDuty API key.
+// GetPagerDutyAPIKey returns the PagerDuty API key from the environment
 func GetPagerDutyAPIKey() string {
-	if config == nil {
-		if err := LoadConfig(); err != nil {
-			fmt.Println("Configuration not loaded and failed to load:", err)
-			return ""
-		}
-	}
-	return config["pagerduty_api_key"]
+	return os.Getenv("PAGERDUTY_API_KEY")
 }
 
-// GetServiceIDsFromYAML retrieves the Service IDs from the YAML config.
-func GetServiceIDsFromYAML() []string {
-	if yamlConfig.PagerDuty.ServiceIDs == nil {
-		if err := LoadConfig(); err != nil { // Attempt to load config if not loaded yet
-			fmt.Println("Configuration not loaded and failed to load:", err)
-			return []string{""} // Return default empty slice in case of error
-		}
-	}
-	if yamlConfig.PagerDuty.ServiceIDs == nil { // Double check after load in case of YAML load failure
-		return []string{""} // Return default if still nil after load attempt
-	}
-	return yamlConfig.PagerDuty.ServiceIDs
+// GetServiceIDs returns the PagerDuty service IDs from the configuration
+func GetServiceIDs() []string {
+	return cfg.PagerDuty.ServiceIDs
 }
